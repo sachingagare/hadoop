@@ -1,0 +1,101 @@
+******* Hortonworks Deployment using Ambari ******
+
+Note : Since you're creating a larger cluster now, the Namenode needs more memory to
+keep track of the metadata than what you used previously. Select an insrtance with 8 GB
+memory (RAM), prefarably m3.large or m4.large, Create your EC2 instances and give it 30 GB 
+storage and tag it Ambari .
+
+-----Log in to the instance you created ----
+$ ssh -i /path/to/key.pem ubuntu@instance_hostaname(Public DNS or IP) 
+
+
+------ Update all packages and upgrade ------
+$ sudo apt-get update && sudo apt-get dist-upgrade -y
+
+-----*** Disable transparent huge pages ***-----
+$ sudo nano /etc/rc.local
+## Add these lines:
+
+if test -f /sys/kernel/mm/transparent_hugepage/enabled; then
+    echo never > /sys/kernel/mm/transparent_hugepage/enabled
+fi
+
+if test -f /sys/kernel/mm/transparent_hugepage/defrag; then
+    echo never > /sys/kernel/mm/transparent_hugepage/defrag
+fi
+
+$sudo -i
+
+$source /etc/rc.local 
+
+
+-----*** Install NTP ***-----
+$ sudo apt-get install ntp -y 
+$ sudo service ntp status
+## If it isn't running 
+$ sudo service ntp start 
+
+
+-----*** Set Swappiness ***-----
+sudo sysctl -a | grep vm.swappiness
+sudo sysctl vm.swappiness=1
+
+
+#### Note : Now, save the instance to an image, call it "Ambari Img". Make sure to 
+check "No Reboot",you'll be using this instane as the Ambari Server.
+
+ 
+----**** Install and start Ambari server ****----
+ 
+---- Copy Key to server ----
+$ scp -i key.pem key.pem ubuntu@server_public_DNS(or IP ):~/.ssh/
+
+
+#### Note : You can find installation instructions here 
+https://cwiki.apache.org/confluence/display/AMBARI/Install+Ambari+2.2.2+from+Public+Repositories
+
+---- Add the Ambari repository to the repository sources ----
+$ cd /etc/apt/sources.list.d
+$ sudo wget http://public-repo-1.hortonworks.com/ambari/ubuntu14/2.x/updates/2.2.0.0/ambari.list
+
+----Add the key to authenticate Ambari package ----
+$ sudo apt-key adv --recv-keys --keyserver keyserver.ubuntu.com B9733A7A07513CAD
+
+
+----- Update the pakage list and upgrade ----
+$ sudo apt-get update && sudo apt-get dist-upgrade -y
+ 
+
+---- Install Ambari server and run setup ----
+$ sudo apt-get install ambari-server -y 
+$ sudo ambari-server setup 
+(Choose the defaults --which is "n" or press "Enter")
+
+
+-----Start the server -----
+$ sudo ambari-server start
+
+
+
+----- Start the ambri server on port 8080 in your browser -----
+> Login as : admin | pass : admin
+> Click on - Launch Install Wizard ->
+  -> give name to cluster : "NewCluster" (or what you want)
+  -> Select Latest Hortonworks version : HDP 2.3 (latest for now to me) 
+  -> Target Hosts : Add hostnames (private DNS of all hosts)
+  -> Upload key
+  -> SSH User Account : " ubuntu 
+  -> click on : Register and Confirm → 
+  -> After success - next
+  -> Choose Services : Untick to all , then choose core hadoop services
+                 like  HDFS, YARN + MapReduce2, ZooKeeper, Ambari Metrics for small cluster 
+       ( you can select more if you want big cluster like hive, oozie, hue ...etc )
+
+  -> Assign Masters : 3 masters 
+  -> Assign Slaves and Clients : 3 slaves
+   (Client= as from where you can take access to these node)
+  -> deploy 
+
+
+
+
